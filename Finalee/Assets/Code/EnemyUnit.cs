@@ -28,21 +28,13 @@ public class EnemyUnit : MonoBehaviour
     }
 
     // TAKE DAMAGE
-    public bool TakeDamage(int damage)
+    public void TakeDamage(int damage)
     {
-        damage -= defense;
+    currentHP -= damage;
 
-        if (damage < 1)
-            damage = 1;
-
-        currentHP -= damage;
-
-        if (currentHP < 0)
-            currentHP = 0;
-
-        return currentHP <= 0;
+    if (currentHP < 0)
+        currentHP = 0;
     }
-
     // RANDOM DIALOGUE
     public string GetRandomDialogue()
     {

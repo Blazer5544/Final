@@ -4,10 +4,6 @@ using TMPro;
 
 public class BattleManager : MonoBehaviour
 {
-    // ============================================
-    // BATTLE STATES
-    // ============================================
-
     public enum BattleState
     {
         START,
@@ -20,11 +16,7 @@ public class BattleManager : MonoBehaviour
 
     public BattleState state;
 
-    // ============================================
-    // REFERENCES
-    // ============================================
-
-    [Header("Battle Units")]
+    [Header("Units")]
     public PlayerUnit playerUnit;
     public EnemyUnit enemyUnit;
 
@@ -32,10 +24,6 @@ public class BattleManager : MonoBehaviour
     public TMP_Text dialogueText;
     public TMP_Text playerHPText;
     public TMP_Text enemyHPText;
-
-    // ============================================
-    // START BATTLE
-    // ============================================
 
     private void Start()
     {
@@ -47,9 +35,7 @@ public class BattleManager : MonoBehaviour
         state = BattleState.START;
 
         dialogueText.text =
-            "A wild " +
-            enemyUnit.enemyName +
-            " appeared!";
+            "A wild " + enemyUnit.enemyName + " appears!";
 
         UpdateUI();
 
@@ -60,43 +46,41 @@ public class BattleManager : MonoBehaviour
         PlayerTurn();
     }
 
-    // ============================================
-    // PLAYER TURN
-    // ============================================
-
     void PlayerTurn()
     {
         dialogueText.text =
-            playerUnit.playerName +
-            "'s Turn\nChoose an action.";
+            playerUnit.playerName + "'s turn.";
     }
 
-    // ============================================
+    // =========================
     // PLAYER ATTACK
-    // ============================================
+    // =========================
 
     public void OnAttackButton()
     {
         if (state != BattleState.PLAYER_TURN)
             return;
 
-        StartCoroutine(PlayerAttackRoutine());
+        StartCoroutine(PlayerAttack());
     }
 
-    IEnumerator PlayerAttackRoutine()
+    IEnumerator PlayerAttack()
     {
-        int damage = playerUnit.Attack();
+        int rawAttack = playerUnit.Attack();
 
-        bool enemyDead =
-            enemyUnit.TakeDamage(damage);
+        int damage = DamageCalculator.CalculateDamage(
+        rawAttack,
+        enemyUnit.defense,
+        0.2f
+        );
+
+        enemyUnit.TakeDamage(damage);
+
+        bool enemyDead = enemyUnit.currentHP <= 0;
 
         dialogueText.text =
             playerUnit.playerName +
-            " attacks " +
-            enemyUnit.enemyName +
-            " for " +
-            damage +
-            " damage!";
+            " deals " + damage + " damage!";
 
         UpdateUI();
 
@@ -105,20 +89,18 @@ public class BattleManager : MonoBehaviour
         if (enemyDead)
         {
             state = BattleState.WON;
-
             EndBattle();
         }
         else
         {
             state = BattleState.ENEMY_TURN;
-
-            StartCoroutine(EnemyTurnRoutine());
+            StartCoroutine(EnemyTurn());
         }
     }
 
-    // ============================================
-    // PLAYER TALK
-    // ============================================
+    // =========================
+    // TALK SYSTEM
+    // =========================
 
     public void OnTalkButton()
     {
@@ -133,40 +115,42 @@ public class BattleManager : MonoBehaviour
         state = BattleState.DIALOGUE;
 
         dialogueText.text =
-            enemyUnit.enemyName +
-            " says:\n\"" +
-            enemyUnit.GetRandomDialogue() +
-            "\"";
+            enemyUnit.enemyName + ": \"" +
+            enemyUnit.GetRandomDialogue() + "\"";
 
         yield return new WaitForSeconds(3f);
 
         state = BattleState.ENEMY_TURN;
 
-        StartCoroutine(EnemyTurnRoutine());
+        StartCoroutine(EnemyTurn());
     }
 
-    // ============================================
+    // =========================
     // ENEMY TURN
-    // ============================================
+    // =========================
 
-    IEnumerator EnemyTurnRoutine()
+    IEnumerator EnemyTurn()
     {
         dialogueText.text =
-            enemyUnit.enemyName +
-            " attacks!";
+            enemyUnit.enemyName + " attacks!";
 
         yield return new WaitForSeconds(1f);
 
-        int damage = enemyUnit.Attack();
+        int rawAttack = enemyUnit.Attack();
 
-        bool playerDead =
-            playerUnit.TakeDamage(damage);
+        int damage = DamageCalculator.CalculateDamage(
+        rawAttack,
+        playerUnit.defense,
+        0.2f
+        );
+
+        playerUnit.TakeDamage(damage);
+
+        bool playerDead = playerUnit.currentHP <= 0;
 
         dialogueText.text =
             enemyUnit.enemyName +
-            " dealt " +
-            damage +
-            " damage!";
+            " deals " + damage + " damage!";
 
         UpdateUI();
 
@@ -175,56 +159,41 @@ public class BattleManager : MonoBehaviour
         if (playerDead)
         {
             state = BattleState.LOST;
-
             EndBattle();
         }
         else
         {
             state = BattleState.PLAYER_TURN;
-
             PlayerTurn();
         }
     }
 
-    // ============================================
+    // =========================
     // END BATTLE
-    // ============================================
+    // =========================
 
     void EndBattle()
     {
         if (state == BattleState.WON)
-        {
-            dialogueText.text =
-                "You defeated " +
-                enemyUnit.enemyName +
-                "!";
-        }
+            dialogueText.text = "You win!";
         else if (state == BattleState.LOST)
-        {
-            dialogueText.text =
-                playerUnit.playerName +
-                " has fallen...";
-        }
+            dialogueText.text = "You were defeated...";
     }
 
-    // ============================================
-    // UPDATE UI
-    // ============================================
+    // =========================
+    // UI
+    // =========================
 
     void UpdateUI()
     {
         playerHPText.text =
             playerUnit.playerName +
-            "\nHP: " +
-            playerUnit.currentHP +
-            "/" +
-            playerUnit.maxHP;
+            " HP: " + playerUnit.currentHP +
+            "/" + playerUnit.maxHP;
 
         enemyHPText.text =
             enemyUnit.enemyName +
-            "\nHP: " +
-            enemyUnit.currentHP +
-            "/" +
-            enemyUnit.maxHP;
+            " HP: " + enemyUnit.currentHP +
+            "/" + enemyUnit.maxHP;
     }
 }
