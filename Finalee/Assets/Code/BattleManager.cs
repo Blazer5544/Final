@@ -25,6 +25,9 @@ public class BattleManager : MonoBehaviour
     public TMP_Text playerHPText;
     public TMP_Text enemyHPText;
 
+    private bool isDefending;
+    private float defendMultiplier = 0.5f;
+
     private void Start()
     {
         StartCoroutine(StartBattle());
@@ -48,12 +51,11 @@ public class BattleManager : MonoBehaviour
 
     void PlayerTurn()
     {
-        dialogueText.text =
-            playerUnit.playerName + "'s turn.";
+        dialogueText.text = "Choose your action.";
     }
 
     // =========================
-    // PLAYER ATTACK
+    // ATTACK
     // =========================
 
     public void OnAttackButton()
@@ -66,12 +68,12 @@ public class BattleManager : MonoBehaviour
 
     IEnumerator PlayerAttack()
     {
-        int rawAttack = playerUnit.Attack();
+        int raw = playerUnit.Attack();
 
         int damage = DamageCalculator.CalculateDamage(
-        rawAttack,
-        enemyUnit.defense,
-        0.2f
+            raw,
+            enemyUnit.defense,
+            0.2f
         );
 
         enemyUnit.TakeDamage(damage);
@@ -99,7 +101,31 @@ public class BattleManager : MonoBehaviour
     }
 
     // =========================
-    // TALK SYSTEM
+    // MAGIC (placeholder)
+    // =========================
+
+    public void OnMagicButton()
+    {
+        if (state != BattleState.PLAYER_TURN)
+            return;
+
+        dialogueText.text = "Magic system coming soon!";
+    }
+
+    // =========================
+    // ITEM (placeholder)
+    // =========================
+
+    public void OnItemButton()
+    {
+        if (state != BattleState.PLAYER_TURN)
+            return;
+
+        dialogueText.text = "Item system coming soon!";
+    }
+
+    // =========================
+    // TALK
     // =========================
 
     public void OnTalkButton()
@@ -126,6 +152,31 @@ public class BattleManager : MonoBehaviour
     }
 
     // =========================
+    // DEFEND (FINAL VERSION)
+    // =========================
+
+    public void OnDefendButton()
+    {
+    if (state != BattleState.PLAYER_TURN)
+        return;
+
+    if (isDefending)
+    {
+        dialogueText.text = "Already defending!";
+        return;
+    }
+
+    isDefending = true;
+
+    dialogueText.text =
+        playerUnit.playerName + " braces for impact!";
+
+    // 🔥 END PLAYER TURN IMMEDIATELY
+    state = BattleState.ENEMY_TURN;
+    StartCoroutine(EnemyTurn());
+    }
+
+    // =========================
     // ENEMY TURN
     // =========================
 
@@ -136,15 +187,22 @@ public class BattleManager : MonoBehaviour
 
         yield return new WaitForSeconds(1f);
 
-        int rawAttack = enemyUnit.Attack();
+        int raw = enemyUnit.Attack();
 
         int damage = DamageCalculator.CalculateDamage(
-        rawAttack,
-        playerUnit.defense,
-        0.2f
+            raw,
+            playerUnit.defense,
+            0.2f
         );
 
+        if (isDefending)
+        {
+            damage = Mathf.RoundToInt(damage * defendMultiplier);
+        }
+
         playerUnit.TakeDamage(damage);
+
+        isDefending = false;
 
         bool playerDead = playerUnit.currentHP <= 0;
 
@@ -175,7 +233,7 @@ public class BattleManager : MonoBehaviour
     void EndBattle()
     {
         if (state == BattleState.WON)
-            dialogueText.text = "You win!";
+            dialogueText.text = "Victory!";
         else if (state == BattleState.LOST)
             dialogueText.text = "You were defeated...";
     }
