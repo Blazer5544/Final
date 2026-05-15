@@ -25,6 +25,9 @@ public class BattleManager : MonoBehaviour
     public TMP_Text playerHPText;
     public TMP_Text enemyHPText;
 
+    [Header("Damage Popup")]
+    public GameObject damagePopupPrefab;
+
     private bool isDefending;
     private float defendMultiplier = 0.5f;
 
@@ -33,19 +36,32 @@ public class BattleManager : MonoBehaviour
         StartCoroutine(StartBattle());
     }
 
+    // =========================
+    // START BATTLE
+    // =========================
+
     IEnumerator StartBattle()
     {
         state = BattleState.START;
 
+        UpdateUI();
+
+        yield return new WaitForSeconds(0.5f);
+
+        dialogueText.text = enemyUnit.enemyName + " approaches...";
+
+        yield return new WaitForSeconds(1.5f);
+
+        dialogueText.text = enemyUnit.GetIntroDialogue();
+
+        yield return new WaitForSeconds(3f);
+
         dialogueText.text =
             "A wild " + enemyUnit.enemyName + " appears!";
 
-        UpdateUI();
-
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(1.5f);
 
         state = BattleState.PLAYER_TURN;
-
         PlayerTurn();
     }
 
@@ -72,17 +88,19 @@ public class BattleManager : MonoBehaviour
 
         int damage = DamageCalculator.CalculateDamage(
             raw,
-            enemyUnit.defense,
-            0.2f
+            enemyUnit.GetDefense()
         );
 
         enemyUnit.TakeDamage(damage);
 
-        bool enemyDead = enemyUnit.currentHP <= 0;
+        SpawnDamagePopup(damage, enemyUnit.transform);
 
-        dialogueText.text =
-            playerUnit.playerName +
-            " deals " + damage + " damage!";
+        if (enemyUnit.CheckPhaseChange())
+        {
+            yield return StartCoroutine(PhaseChangeDialogue());
+        }
+
+        bool enemyDead = enemyUnit.currentHP <= 0;
 
         UpdateUI();
 
@@ -101,79 +119,20 @@ public class BattleManager : MonoBehaviour
     }
 
     // =========================
-    // MAGIC (placeholder)
-    // =========================
-
-    public void OnMagicButton()
-    {
-        if (state != BattleState.PLAYER_TURN)
-            return;
-
-        dialogueText.text = "Magic system coming soon!";
-    }
-
-    // =========================
-    // ITEM (placeholder)
-    // =========================
-
-    public void OnItemButton()
-    {
-        if (state != BattleState.PLAYER_TURN)
-            return;
-
-        dialogueText.text = "Item system coming soon!";
-    }
-
-    // =========================
-    // TALK
-    // =========================
-
-    public void OnTalkButton()
-    {
-        if (state != BattleState.PLAYER_TURN)
-            return;
-
-        StartCoroutine(TalkRoutine());
-    }
-
-    IEnumerator TalkRoutine()
-    {
-        state = BattleState.DIALOGUE;
-
-        dialogueText.text =
-            enemyUnit.enemyName + ": \"" +
-            enemyUnit.GetRandomDialogue() + "\"";
-
-        yield return new WaitForSeconds(3f);
-
-        state = BattleState.ENEMY_TURN;
-
-        StartCoroutine(EnemyTurn());
-    }
-
-    // =========================
-    // DEFEND (FINAL VERSION)
+    // DEFEND
     // =========================
 
     public void OnDefendButton()
     {
-    if (state != BattleState.PLAYER_TURN)
-        return;
+        if (state != BattleState.PLAYER_TURN)
+            return;
 
-    if (isDefending)
-    {
-        dialogueText.text = "Already defending!";
-        return;
-    }
+        isDefending = true;
 
-    isDefending = true;
+        dialogueText.text = playerUnit.playerName + " is guarding!";
 
-    dialogueText.text =
-        playerUnit.playerName + " braces for impact!";
-
-    // 🔥 END PLAYER TURN IMMEDIATELY
-    state = BattleState.ENEMY_TURN;
-    StartCoroutine(EnemyTurn());
+        state = BattleState.ENEMY_TURN;
+        StartCoroutine(EnemyTurn());
     }
 
     // =========================
@@ -182,8 +141,7 @@ public class BattleManager : MonoBehaviour
 
     IEnumerator EnemyTurn()
     {
-        dialogueText.text =
-            enemyUnit.enemyName + " attacks!";
+        dialogueText.text = enemyUnit.enemyName + " attacks!";
 
         yield return new WaitForSeconds(1f);
 
@@ -191,8 +149,7 @@ public class BattleManager : MonoBehaviour
 
         int damage = DamageCalculator.CalculateDamage(
             raw,
-            playerUnit.defense,
-            0.2f
+            playerUnit.defense
         );
 
         if (isDefending)
@@ -202,13 +159,11 @@ public class BattleManager : MonoBehaviour
 
         playerUnit.TakeDamage(damage);
 
+        SpawnDamagePopup(damage, playerUnit.transform);
+
         isDefending = false;
 
         bool playerDead = playerUnit.currentHP <= 0;
-
-        dialogueText.text =
-            enemyUnit.enemyName +
-            " deals " + damage + " damage!";
 
         UpdateUI();
 
@@ -227,15 +182,48 @@ public class BattleManager : MonoBehaviour
     }
 
     // =========================
-    // END BATTLE
+    // PHASE TRANSITION
+    // =========================
+
+    IEnumerator PhaseChangeDialogue()
+    {
+        state = BattleState.DIALOGUE;
+
+        dialogueText.text = enemyUnit.GetPhase2IntroDialogue();
+
+        yield return new WaitForSeconds(3f);
+
+        dialogueText.text = enemyUnit.enemyName + " enters SECOND PHASE!";
+
+        yield return new WaitForSeconds(2f);
+    }
+
+    // =========================
+    // POPUP SPAWNER
+    // =========================
+
+    void SpawnDamagePopup(int damage, Transform target)
+    {
+        Vector3 pos = target.position;
+
+        GameObject popup = Instantiate(
+            damagePopupPrefab,
+            pos,
+            Quaternion.identity,
+            transform
+        );
+
+        popup.GetComponent<DamagePopup>().Setup(damage);
+    }
+
+    // =========================
+    // END
     // =========================
 
     void EndBattle()
     {
-        if (state == BattleState.WON)
-            dialogueText.text = "Victory!";
-        else if (state == BattleState.LOST)
-            dialogueText.text = "You were defeated...";
+        dialogueText.text =
+            state == BattleState.WON ? "Victory!" : "You were defeated...";
     }
 
     // =========================
@@ -245,13 +233,11 @@ public class BattleManager : MonoBehaviour
     void UpdateUI()
     {
         playerHPText.text =
-            playerUnit.playerName +
-            " HP: " + playerUnit.currentHP +
-            "/" + playerUnit.maxHP;
+            playerUnit.playerName + " HP: " +
+            playerUnit.currentHP + "/" + playerUnit.maxHP;
 
         enemyHPText.text =
-            enemyUnit.enemyName +
-            " HP: " + enemyUnit.currentHP +
-            "/" + enemyUnit.maxHP;
+            enemyUnit.enemyName + " HP: " +
+            enemyUnit.currentHP + "/" + enemyUnit.maxHP;
     }
 }
